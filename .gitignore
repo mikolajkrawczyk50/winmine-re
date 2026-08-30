@@ -9,3 +9,12 @@
 # Archives and unpacked folders
 *.zip
 Minesweeper-Windows-XP/
+
+# IDA database files
+*.id0
+*.id1
+*.id2
+*.nam
+*.til
+*.i64
+decompile.txt
