@@ -25,7 +25,10 @@ winmine_hook.dll: winmine_hook.cpp
 test: all
 	./test.sh
 
+run: all
+	./run_winmine.sh
+
 clean:
 	rm -f hello.exe mydll.dll inject.exe target.exe inject32.exe winmine_hook.dll winmine_hook.log
 
-.PHONY: all test clean
+.PHONY: all test run clean
