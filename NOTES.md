@@ -49,12 +49,13 @@ Multi-hook instrumentation DLL payload:
 - Installs 64-bit inline prologue hooks (`calculate_price` parameter mutation/profiling, `execute_job` return mutation).
 
 ### 5. `winmine_hook.cpp` → `winmine_hook.dll` (32-bit)
-Testing wrapper hook for 32-bit Windows XP `WINMINE.EXE`:
-- Hooks `sub_100346a` (`0x0100346a`, mine counter update function).
-- Reads internal memory counter `0x01005194` before and after execution.
-- Calls original `100346a(delta)` cleanly.
-- Logs call index, argument delta, and pre/post mine count state.
-- Automated runner: `test_winmine_wrapper.sh` (supports `headless` via Xvfb or active `gui` display).
+Digit rendering hook for 32-bit Windows XP `WINMINE.EXE`:
+- Hooks `sub_1002752` (`0x01002752`, 7-segment digit render function).
+- Replaces disassembly with C implementation using `SetDIBitsToDevice`.
+- Reads digit bitmap offsets from `*(BITMAPINFO**)0x0100595C` (`dword_100595C`) and `0x01005A60` (`dword_1005A60[a3]`).
+- Custom renders 13x23 pixel digital counter digits for mine counts and timer.
+- Links against `-lgdi32`.
+
 
 
 

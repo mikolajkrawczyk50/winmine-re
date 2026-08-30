@@ -83,8 +83,8 @@ else
 fi
 cleanup
 
-# 6. 32-bit WINMINE.EXE 100346a Hook
-echo -n "Test 6 (32-bit WINMINE.EXE 100346a Hook): "
+# 6. 32-bit WINMINE.EXE sub_1002752 Hook
+echo -n "Test 6 (32-bit WINMINE.EXE sub_1002752 Hook): "
 rm -f winmine_hook.log
 Xvfb :99 -screen 0 1024x768x16 >/dev/null 2>&1 &
 sleep 1
@@ -98,9 +98,8 @@ cat << "CLICK_EOF" > send_click.cpp
 int main() {
     HWND hwnd = FindWindowA("Minesweeper", NULL);
     if (hwnd) {
-        LPARAM pos = MAKELPARAM(30, 70);
-        PostMessageA(hwnd, WM_RBUTTONDOWN, MK_RBUTTON, pos);
-        PostMessageA(hwnd, WM_RBUTTONUP, 0, pos);
+        InvalidateRect(hwnd, NULL, TRUE);
+        UpdateWindow(hwnd);
     }
     return 0;
 }
@@ -110,8 +109,8 @@ DISPLAY=:99 wine send_click.exe >/dev/null 2>&1 || true
 rm -f send_click.cpp send_click.exe
 sleep 2
 
-if grep -q "Testing wrapper hook installed on 100346a" winmine_hook.log && \
-   grep -q "Original 100346a executed!" winmine_hook.log; then
+if grep -q "Hook successfully installed on sub_1002752" winmine_hook.log && \
+   grep -q "Drawing digit index" winmine_hook.log; then
     echo "PASS"
     ((PASS++))
 else

@@ -20,7 +20,7 @@ inject32.exe: inject32.cpp
 	$(CXX32) $(CXXFLAGS) -o $@ $< -ladvapi32
 
 winmine_hook.dll: winmine_hook.cpp
-	$(CXX32) -shared $(CXXFLAGS) -o $@ $<
+	$(CXX32) -shared $(CXXFLAGS) -o $@ $< -lgdi32
 
 test: all
 	./test.sh

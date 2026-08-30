@@ -2,14 +2,13 @@
 #include <stdio.h>
 #include <stdint.h>
 
-#define TARGET_FUNC_ADDR 0x0100346a
-#define MINE_COUNT_ADDR  0x01005194
+#define TARGET_FUNC_ADDR   0x01002752
+#define DWORD_100595C_ADDR 0x0100595C
+#define DWORD_1005A60_ADDR 0x01005A60
 
-typedef void (__stdcall *UpdateMinesFunc_t)(int);
-
-static BYTE g_origBytes[10];
-static BYTE g_patchBytes[10];
-static int g_callCount = 0;
+static BYTE g_origBytes[9];
+static BYTE g_patchBytes[9];
+static int g_drawCallCount = 0;
 
 static void log_msg(const char* fmt, ...) {
     char buf[512];
@@ -31,51 +30,55 @@ static void log_msg(const char* fmt, ...) {
     }
 }
 
-void __stdcall hooked_100346a(int delta) {
-    g_callCount++;
-    int beforeCount = *(int*)MINE_COUNT_ADDR;
+// Hook replacing sub_1002752 in WINMINE.EXE
+int __stdcall hooked_sub_1002752(HDC hdc, int xDest, int a3) {
+    g_drawCallCount++;
+    void* dword_100595C = *(void**)DWORD_100595C_ADDR;
+    uint32_t* dword_1005A60 = (uint32_t*)DWORD_1005A60_ADDR;
 
-    log_msg("[HOOK WRAPPER #%d] 100346a called with delta=%d (Mines before: %d)\n",
-            g_callCount, delta, beforeCount);
+    log_msg("[HOOK sub_1002752 #%d] Drawing digit index %d at xDest=%d (hdc=%p, bmi=%p)\n",
+            g_drawCallCount, a3, xDest, hdc, dword_100595C);
 
-    // Unhook temporarily to call original function
-    DWORD oldProtect;
-    VirtualProtect((void*)TARGET_FUNC_ADDR, 10, PAGE_EXECUTE_READWRITE, &oldProtect);
-    memcpy((void*)TARGET_FUNC_ADDR, g_origBytes, 10);
-    FlushInstructionCache(GetCurrentProcess(), (void*)TARGET_FUNC_ADDR, 10);
+    if (!dword_100595C) {
+        return 0;
+    }
 
-    // Call original function cleanly
-    ((UpdateMinesFunc_t)TARGET_FUNC_ADDR)(delta);
-
-    // Re-hook
-    memcpy((void*)TARGET_FUNC_ADDR, g_patchBytes, 10);
-    FlushInstructionCache(GetCurrentProcess(), (void*)TARGET_FUNC_ADDR, 10);
-    VirtualProtect((void*)TARGET_FUNC_ADDR, 10, oldProtect, &oldProtect);
-
-    int afterCount = *(int*)MINE_COUNT_ADDR;
-    log_msg("[HOOK WRAPPER #%d] Original 100346a executed! (Mines after: %d, expected: %d)\n",
-            g_callCount, afterCount, beforeCount + delta);
+    return SetDIBitsToDevice(
+        hdc,
+        xDest,
+        16,     // yDest: 16
+        0x0D,   // w: 0xDu (13)
+        0x17,   // h: 0x17u (23)
+        0,      // xSrc: 0
+        0,      // ySrc: 0
+        0,      // StartScan: 0
+        0x17,   // cLines: 0x17u (23)
+        (char*)dword_100595C + dword_1005A60[a3], // lpvBits
+        (BITMAPINFO*)dword_100595C,               // lpbmi
+        0);                                       // ColorUse: 0
 }
 
 void install_hook() {
     DWORD oldProtect;
-    VirtualProtect((void*)TARGET_FUNC_ADDR, 10, PAGE_EXECUTE_READWRITE, &oldProtect);
+    VirtualProtect((void*)TARGET_FUNC_ADDR, 9, PAGE_EXECUTE_READWRITE, &oldProtect);
 
-    memcpy(g_origBytes, (void*)TARGET_FUNC_ADDR, 10);
+    // Save original 9 bytes
+    memcpy(g_origBytes, (void*)TARGET_FUNC_ADDR, 9);
 
-    // 5-byte JMP: 0xE9 [rel32 offset] + 5 NOPs
+    // 5-byte JMP: 0xE9 [rel32 offset] + 4 NOPs (0x90)
     g_patchBytes[0] = 0xE9;
-    DWORD relOffset = (DWORD)&hooked_100346a - (TARGET_FUNC_ADDR + 5);
+    DWORD relOffset = (DWORD)&hooked_sub_1002752 - (TARGET_FUNC_ADDR + 5);
     memcpy(&g_patchBytes[1], &relOffset, 4);
-    for (int i = 5; i < 10; i++) {
+    for (int i = 5; i < 9; i++) {
         g_patchBytes[i] = 0x90;
     }
 
-    memcpy((void*)TARGET_FUNC_ADDR, g_patchBytes, 10);
-    FlushInstructionCache(GetCurrentProcess(), (void*)TARGET_FUNC_ADDR, 10);
-    VirtualProtect((void*)TARGET_FUNC_ADDR, 10, oldProtect, &oldProtect);
+    // Apply patch
+    memcpy((void*)TARGET_FUNC_ADDR, g_patchBytes, 9);
+    FlushInstructionCache(GetCurrentProcess(), (void*)TARGET_FUNC_ADDR, 9);
+    VirtualProtect((void*)TARGET_FUNC_ADDR, 9, oldProtect, &oldProtect);
 
-    log_msg("[DLL] Testing wrapper hook installed on 100346a!\n");
+    log_msg("[DLL] Hook successfully installed on sub_1002752 (0x%08X)!\n", TARGET_FUNC_ADDR);
 }
 
 extern "C" BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved) {
