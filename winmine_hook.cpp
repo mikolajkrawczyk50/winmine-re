@@ -291,6 +291,26 @@ int __stdcall sub_1002A22(HDC hdc) {
 }
 
 // -----------------------------------------------------------------------------
+// 11. Recompiled sub_1002AC3: Full game window repaint (borders, counters, face, board)
+// -----------------------------------------------------------------------------
+#define dword_1005160 (*(int*)0x01005160)
+#define ADDR_SUB_10026A7 0x010026A7
+#define ADDR_SUB_1002AC3 0x01002AC3
+
+typedef int (__stdcall *Sub_10026A7_t)(HDC hdc);
+
+int __stdcall sub_1002AC3(HDC hdc) {
+    log_msg("[sub_1002AC3] Full game window repaint (hdc=%p, faceState=%d)\n", hdc, dword_1005160);
+
+    sub_1002A22(hdc);
+    sub_1002785(hdc);
+    sub_10028D9(hdc, dword_1005160);
+    draw_number_sub_1002825(hdc);
+
+    return ((Sub_10026A7_t)ADDR_SUB_10026A7)(hdc);
+}
+
+// -----------------------------------------------------------------------------
 // 6. Recompiled sub_100346A: Add delta to mine counter and refresh display
 // -----------------------------------------------------------------------------
 int __stdcall sub_100346A(int a1) {
@@ -381,12 +401,13 @@ void install_all_hooks() {
     install_jmp_hook((void*)ADDR_SUB_100293D, (void*)&set_draw_mode_sub_100293D, 7);
     install_jmp_hook((void*)ADDR_SUB_1002971, (void*)&sub_1002971, 8);
     install_jmp_hook((void*)ADDR_SUB_1002A22, (void*)&sub_1002A22, 7);
+    install_jmp_hook((void*)ADDR_SUB_1002AC3, (void*)&sub_1002AC3, 5);
     install_jmp_hook((void*)ADDR_SUB_100346A, (void*)&sub_100346A, 10);
 
     // 3. Unfreeze (Resume) threads
     unfreeze_other_threads();
 
-    log_msg("[DLL] Successfully installed all 11 recompiled hooks (freeze -> hook -> unfreeze)!\n");
+    log_msg("[DLL] Successfully installed all 12 recompiled hooks (freeze -> hook -> unfreeze)!\n");
 }
 
 extern "C" BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved) {
