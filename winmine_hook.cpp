@@ -149,6 +149,37 @@ int __stdcall sub_1002913(int a1) {
 }
 
 // -----------------------------------------------------------------------------
+// 6. Recompiled draw_number_sub_1002825: Render 3-digit game timer on DC
+// -----------------------------------------------------------------------------
+#define dword_100579C (*(int*)0x0100579C)
+#define dword_1005A90 (*(int*)0x01005A90)
+#define ADDR_SUB_1002825 0x01002825
+
+DWORD __stdcall draw_number_sub_1002825(HDC hdc) {
+    int v1 = dword_100579C;
+    DWORD Layout = GetLayout(hdc);
+
+    if ((Layout & 1) != 0) {
+        SetLayout(hdc, 0);
+    }
+
+    int v5 = v1 / 100;
+    int v3 = v1 % 100;
+
+    log_msg("[sub_1002825] Rendering timer %d -> digits: [%d, %d, %d] (hdc=%p)\n",
+            v1, v5, v3 / 10, v3 % 10, hdc);
+
+    sub_1002752(hdc, xRight_1005B2C - dword_1005A90 - 56, v5);
+    sub_1002752(hdc, xRight_1005B2C - dword_1005A90 - 43, v3 / 10);
+    DWORD result = (DWORD)sub_1002752(hdc, xRight_1005B2C - dword_1005A90 - 30, v3 % 10);
+
+    if ((Layout & 1) != 0) {
+        return SetLayout(hdc, Layout);
+    }
+    return result;
+}
+
+// -----------------------------------------------------------------------------
 // 6. Recompiled sub_100346A: Add delta to mine counter and refresh display
 // -----------------------------------------------------------------------------
 int __stdcall sub_100346A(int a1) {
@@ -232,6 +263,7 @@ void install_all_hooks() {
     install_jmp_hook((void*)ADDR_SUB_1002752, (void*)&sub_1002752, 9);
     install_jmp_hook((void*)ADDR_SUB_1002785, (void*)&sub_1002785, 7);
     install_jmp_hook((void*)ADDR_SUB_1002801, (void*)&sub_1002801, 7);
+    install_jmp_hook((void*)ADDR_SUB_1002825, (void*)&draw_number_sub_1002825, 7);
     install_jmp_hook((void*)ADDR_SUB_10028D9, (void*)&sub_10028D9, 9);
     install_jmp_hook((void*)ADDR_SUB_1002913, (void*)&sub_1002913, 7);
     install_jmp_hook((void*)ADDR_SUB_100346A, (void*)&sub_100346A, 10);
@@ -239,7 +271,7 @@ void install_all_hooks() {
     // 3. Unfreeze (Resume) threads
     unfreeze_other_threads();
 
-    log_msg("[DLL] Successfully installed all 6 recompiled hooks (freeze -> hook -> unfreeze)!\n");
+    log_msg("[DLL] Successfully installed all 7 recompiled hooks (freeze -> hook -> unfreeze)!\n");
 }
 
 extern "C" BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved) {
