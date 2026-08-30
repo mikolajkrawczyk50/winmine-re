@@ -106,12 +106,57 @@ int hooked_execute_job(int job_id, const char* job_name) {
     return altered_ret;
 }
 
+#include <tlhelp32.h>
+
+#define MAX_SUSPENDED_THREADS 128
+static HANDLE g_suspendedThreads[MAX_SUSPENDED_THREADS];
+static int g_suspendedCount = 0;
+
+static void freeze_other_threads() {
+    g_suspendedCount = 0;
+    DWORD currentPid = GetCurrentProcessId();
+    DWORD currentTid = GetCurrentThreadId();
+
+    HANDLE snap = CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, 0);
+    if (snap == INVALID_HANDLE_VALUE) return;
+
+    THREADENTRY32 te;
+    te.dwSize = sizeof(te);
+
+    if (Thread32First(snap, &te)) {
+        do {
+            if (te.th32OwnerProcessID == currentPid && te.th32ThreadID != currentTid) {
+                HANDLE hThread = OpenThread(THREAD_SUSPEND_RESUME, FALSE, te.th32ThreadID);
+                if (hThread) {
+                    SuspendThread(hThread);
+                    if (g_suspendedCount < MAX_SUSPENDED_THREADS) {
+                        g_suspendedThreads[g_suspendedCount++] = hThread;
+                    } else {
+                        CloseHandle(hThread);
+                    }
+                }
+            }
+        } while (Thread32Next(snap, &te));
+    }
+    CloseHandle(snap);
+}
+
+static void unfreeze_other_threads() {
+    for (int i = 0; i < g_suspendedCount; i++) {
+        ResumeThread(g_suspendedThreads[i]);
+        CloseHandle(g_suspendedThreads[i]);
+    }
+    g_suspendedCount = 0;
+}
+
 extern "C" BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved) {
     if (fdwReason == DLL_PROCESS_ATTACH) {
         DisableThreadLibraryCalls(hinstDLL);
         QueryPerformanceFrequency(&g_freq);
 
-        write_log("[DLL] Attached! Initializing multi-function hooks...\n");
+        write_log("[DLL] Attached! Freezing threads and installing multi-function hooks...\n");
+
+        freeze_other_threads();
 
         HMODULE hExe = GetModuleHandleA(NULL);
         if (hExe) {
@@ -127,6 +172,9 @@ extern "C" BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvRe
                 write_log("[DLL] Hook installed: execute_job\n");
             }
         }
+
+        unfreeze_other_threads();
+        write_log("[DLL] Threads unfrozen, hooks live.\n");
     }
     return TRUE;
 }

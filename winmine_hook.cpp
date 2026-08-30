@@ -115,6 +115,52 @@ int __stdcall sub_100346A(int a1) {
 }
 
 // -----------------------------------------------------------------------------
+// Thread Freezing / Unfreezing Lifecycle
+// -----------------------------------------------------------------------------
+#include <tlhelp32.h>
+
+#define MAX_SUSPENDED_THREADS 128
+static HANDLE g_suspendedThreads[MAX_SUSPENDED_THREADS];
+static int g_suspendedCount = 0;
+
+static void freeze_other_threads() {
+    g_suspendedCount = 0;
+    DWORD currentPid = GetCurrentProcessId();
+    DWORD currentTid = GetCurrentThreadId();
+
+    HANDLE snap = CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, 0);
+    if (snap == INVALID_HANDLE_VALUE) return;
+
+    THREADENTRY32 te;
+    te.dwSize = sizeof(te);
+
+    if (Thread32First(snap, &te)) {
+        do {
+            if (te.th32OwnerProcessID == currentPid && te.th32ThreadID != currentTid) {
+                HANDLE hThread = OpenThread(THREAD_SUSPEND_RESUME, FALSE, te.th32ThreadID);
+                if (hThread) {
+                    SuspendThread(hThread);
+                    if (g_suspendedCount < MAX_SUSPENDED_THREADS) {
+                        g_suspendedThreads[g_suspendedCount++] = hThread;
+                    } else {
+                        CloseHandle(hThread);
+                    }
+                }
+            }
+        } while (Thread32Next(snap, &te));
+    }
+    CloseHandle(snap);
+}
+
+static void unfreeze_other_threads() {
+    for (int i = 0; i < g_suspendedCount; i++) {
+        ResumeThread(g_suspendedThreads[i]);
+        CloseHandle(g_suspendedThreads[i]);
+    }
+    g_suspendedCount = 0;
+}
+
+// -----------------------------------------------------------------------------
 // Hook Installation
 // -----------------------------------------------------------------------------
 static void install_jmp_hook(void* target, void* hook, int size) {
@@ -135,12 +181,19 @@ static void install_jmp_hook(void* target, void* hook, int size) {
 }
 
 void install_all_hooks() {
+    // 1. Freeze all other threads to prevent race conditions during patching
+    freeze_other_threads();
+
+    // 2. Apply hooks safely
     install_jmp_hook((void*)ADDR_SUB_1002752, (void*)&sub_1002752, 9);
     install_jmp_hook((void*)ADDR_SUB_1002785, (void*)&sub_1002785, 7);
     install_jmp_hook((void*)ADDR_SUB_1002801, (void*)&sub_1002801, 7);
     install_jmp_hook((void*)ADDR_SUB_100346A, (void*)&sub_100346A, 10);
 
-    log_msg("[DLL] Successfully installed all 4 recompiled hooks (1002752, 1002785, 1002801, 100346A)!\n");
+    // 3. Unfreeze (Resume) threads
+    unfreeze_other_threads();
+
+    log_msg("[DLL] Successfully installed all 4 recompiled hooks (freeze -> hook -> unfreeze)!\n");
 }
 
 extern "C" BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved) {
