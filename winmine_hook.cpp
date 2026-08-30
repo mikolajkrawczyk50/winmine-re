@@ -195,6 +195,23 @@ int redraw_number_sub_10028B5() {
 }
 
 // -----------------------------------------------------------------------------
+// 8. Recompiled set_draw_mode_sub_100293D: Set ROP2 draw mode / brush selection
+// -----------------------------------------------------------------------------
+#define dword_1005158 (*(HGDIOBJ*)0x01005158)
+#define ADDR_SUB_100293D 0x0100293D
+
+HGDIOBJ __stdcall set_draw_mode_sub_100293D(HDC hdc, char a2) {
+    log_msg("[sub_100293D] Setting draw mode: hdc=%p, a2=%d\n", hdc, (int)a2);
+
+    if ((a2 & 1) != 0) {
+        return (HGDIOBJ)SetROP2(hdc, 16); // R2_WHITE (16)
+    }
+
+    SetROP2(hdc, 13); // R2_COPYPEN (13)
+    return SelectObject(hdc, dword_1005158);
+}
+
+// -----------------------------------------------------------------------------
 // 6. Recompiled sub_100346A: Add delta to mine counter and refresh display
 // -----------------------------------------------------------------------------
 int __stdcall sub_100346A(int a1) {
@@ -282,12 +299,13 @@ void install_all_hooks() {
     install_jmp_hook((void*)ADDR_SUB_10028B5, (void*)&redraw_number_sub_10028B5, 7);
     install_jmp_hook((void*)ADDR_SUB_10028D9, (void*)&sub_10028D9, 9);
     install_jmp_hook((void*)ADDR_SUB_1002913, (void*)&sub_1002913, 7);
+    install_jmp_hook((void*)ADDR_SUB_100293D, (void*)&set_draw_mode_sub_100293D, 7);
     install_jmp_hook((void*)ADDR_SUB_100346A, (void*)&sub_100346A, 10);
 
     // 3. Unfreeze (Resume) threads
     unfreeze_other_threads();
 
-    log_msg("[DLL] Successfully installed all 8 recompiled hooks (freeze -> hook -> unfreeze)!\n");
+    log_msg("[DLL] Successfully installed all 9 recompiled hooks (freeze -> hook -> unfreeze)!\n");
 }
 
 extern "C" BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved) {
