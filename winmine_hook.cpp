@@ -346,6 +346,42 @@ int sub_1002B14() {
 }
 
 // -----------------------------------------------------------------------------
+// 14. Recompiled sub_1002B27: Read clamped DWORD setting from Registry
+// -----------------------------------------------------------------------------
+#define hKey_1005950 (*(HKEY*)0x01005950)
+#define lpKeyName_10050D0 ((const WCHAR**)0x010050D0)
+#define ADDR_SUB_1002B27 0x01002B27
+
+int __stdcall sub_1002B27(int keyIndex, int defaultVal, int minVal, int maxVal) {
+    DWORD data = 0;
+    DWORD cbData = sizeof(DWORD);
+    const WCHAR* valName = lpKeyName_10050D0[keyIndex];
+
+    LONG status = RegQueryValueExW(
+        hKey_1005950,
+        valName,
+        NULL,
+        NULL,
+        (LPBYTE)&data,
+        &cbData);
+
+    if (status != ERROR_SUCCESS) {
+        log_msg("[sub_1002B27] RegQueryValueExW(keyIndex=%d): not found, default=%d\n",
+                keyIndex, defaultVal);
+        return defaultVal;
+    }
+
+    int val = (int)data;
+    if (val < minVal) val = minVal;
+    if (val > maxVal) val = maxVal;
+
+    log_msg("[sub_1002B27] RegQueryValueExW(keyIndex=%d): read=%d, clamped=%d [min=%d, max=%d]\n",
+            keyIndex, (int)data, val, minVal, maxVal);
+
+    return val;
+}
+
+// -----------------------------------------------------------------------------
 // 6. Recompiled sub_100346A: Add delta to mine counter and refresh display
 // -----------------------------------------------------------------------------
 int __stdcall sub_100346A(int a1) {
@@ -439,12 +475,13 @@ void install_all_hooks() {
     install_jmp_hook((void*)ADDR_SUB_1002AC3, (void*)&sub_1002AC3, 5);
     install_jmp_hook((void*)ADDR_SUB_1002AF0, (void*)&sub_1002AF0, 7);
     install_jmp_hook((void*)ADDR_SUB_1002B14, (void*)&sub_1002B14, 5);
+    install_jmp_hook((void*)ADDR_SUB_1002B27, (void*)&sub_1002B27, 7);
     install_jmp_hook((void*)ADDR_SUB_100346A, (void*)&sub_100346A, 10);
 
     // 3. Unfreeze (Resume) threads
     unfreeze_other_threads();
 
-    log_msg("[DLL] Successfully installed all 14 recompiled hooks (freeze -> hook -> unfreeze)!\n");
+    log_msg("[DLL] Successfully installed all 15 recompiled hooks (freeze -> hook -> unfreeze)!\n");
 }
 
 extern "C" BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved) {
