@@ -212,6 +212,50 @@ HGDIOBJ __stdcall set_draw_mode_sub_100293D(HDC hdc, char a2) {
 }
 
 // -----------------------------------------------------------------------------
+// 9. Recompiled sub_1002971: Draw 3D beveled rectangle borders
+// -----------------------------------------------------------------------------
+#define ADDR_SUB_1002971 0x01002971
+
+int __stdcall sub_1002971(HDC hdc, int x, int a3, int a4, int y, int a6, int a7) {
+    int result = 0;
+    int v9 = 0;
+
+    log_msg("[sub_1002971] DrawBevelRect: hdc=%p, rect=[%d, %d, %d, %d], border=%d, mode=%d\n",
+            hdc, x, a3, a4, y, a6, a7);
+
+    set_draw_mode_sub_100293D(hdc, (char)a7);
+
+    if (a6 > 0) {
+        int count = a6;
+        v9 = a6;
+        do {
+            MoveToEx(hdc, x, --y, NULL);
+            LineTo(hdc, x++, a3);
+            LineTo(hdc, a4--, a3++);
+            count--;
+        } while (count != 0);
+    }
+
+    int v10 = v9 + 1;
+    if (a7 < 2) {
+        set_draw_mode_sub_100293D(hdc, (char)(a7 ^ 1));
+    }
+
+    result = v10 - 1;
+    if (v10 != 1) {
+        int v12 = v10 - 1;
+        do {
+            MoveToEx(hdc, x--, ++y, NULL);
+            LineTo(hdc, ++a4, y);
+            result = LineTo(hdc, a4, --a3);
+            --v12;
+        } while (v12 != 0);
+    }
+
+    return result;
+}
+
+// -----------------------------------------------------------------------------
 // 6. Recompiled sub_100346A: Add delta to mine counter and refresh display
 // -----------------------------------------------------------------------------
 int __stdcall sub_100346A(int a1) {
@@ -300,12 +344,13 @@ void install_all_hooks() {
     install_jmp_hook((void*)ADDR_SUB_10028D9, (void*)&sub_10028D9, 9);
     install_jmp_hook((void*)ADDR_SUB_1002913, (void*)&sub_1002913, 7);
     install_jmp_hook((void*)ADDR_SUB_100293D, (void*)&set_draw_mode_sub_100293D, 7);
+    install_jmp_hook((void*)ADDR_SUB_1002971, (void*)&sub_1002971, 8);
     install_jmp_hook((void*)ADDR_SUB_100346A, (void*)&sub_100346A, 10);
 
     // 3. Unfreeze (Resume) threads
     unfreeze_other_threads();
 
-    log_msg("[DLL] Successfully installed all 9 recompiled hooks (freeze -> hook -> unfreeze)!\n");
+    log_msg("[DLL] Successfully installed all 10 recompiled hooks (freeze -> hook -> unfreeze)!\n");
 }
 
 extern "C" BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved) {
