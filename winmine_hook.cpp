@@ -6,11 +6,16 @@
 #define dword_1005194 (*(int*)0x01005194)
 #define dword_100595C (*(void**)0x0100595C)
 #define dword_1005A60 ((uint32_t*)0x01005A60)
+#define dword_1005A00 (*(void**)0x01005A00)
+#define dword_1005960 ((uint32_t*)0x01005960)
+#define xRight_1005B2C (*(int*)0x01005B2C)
 #define hWnd_1005B24  (*(HWND*)0x01005B24)
 
 #define ADDR_SUB_1002752 0x01002752
 #define ADDR_SUB_1002785 0x01002785
 #define ADDR_SUB_1002801 0x01002801
+#define ADDR_SUB_10028D9 0x010028D9
+#define ADDR_SUB_1002913 0x01002913
 #define ADDR_SUB_100346A 0x0100346A
 
 static void log_msg(const char* fmt, ...) {
@@ -105,7 +110,46 @@ int sub_1002801() {
 }
 
 // -----------------------------------------------------------------------------
-// 4. Recompiled sub_100346A: Add delta to mine counter and refresh display
+// 4. Recompiled sub_10028D9: Render 24x24 Smiley Face Icon via SetDIBitsToDevice
+// -----------------------------------------------------------------------------
+int __stdcall sub_10028D9(HDC hdc, int a2) {
+    void* bmi = dword_1005A00;
+    int xDest = (xRight_1005B2C - 24) >> 1;
+
+    log_msg("[sub_10028D9] Drawing face state %d at xDest=%d (hdc=%p)\n", a2, xDest, hdc);
+
+    if (!bmi) return 0;
+
+    return SetDIBitsToDevice(
+        hdc,
+        xDest,
+        16,     // yDest: 16
+        0x18,   // w: 0x18u (24)
+        0x18,   // h: 0x18u (24)
+        0,      // xSrc: 0
+        0,      // ySrc: 0
+        0,      // StartScan: 0
+        0x18,   // cLines: 0x18u (24)
+        (char*)bmi + dword_1005960[a2], // lpvBits
+        (BITMAPINFO*)bmi,               // lpbmi
+        0);                             // ColorUse: 0
+}
+
+// -----------------------------------------------------------------------------
+// 5. Recompiled sub_1002913: Acquire DC, draw smiley face, and release DC
+// -----------------------------------------------------------------------------
+int __stdcall sub_1002913(int a1) {
+    HWND hWnd = hWnd_1005B24;
+    HDC DC = GetDC(hWnd);
+    if (!DC) return 0;
+
+    log_msg("[sub_1002913] Redraw face requested: state=%d, DC=%p\n", a1, DC);
+    sub_10028D9(DC, a1);
+    return ReleaseDC(hWnd, DC);
+}
+
+// -----------------------------------------------------------------------------
+// 6. Recompiled sub_100346A: Add delta to mine counter and refresh display
 // -----------------------------------------------------------------------------
 int __stdcall sub_100346A(int a1) {
     log_msg("[sub_100346A] Mine delta=%d (before=%d, after=%d)\n",
@@ -188,12 +232,14 @@ void install_all_hooks() {
     install_jmp_hook((void*)ADDR_SUB_1002752, (void*)&sub_1002752, 9);
     install_jmp_hook((void*)ADDR_SUB_1002785, (void*)&sub_1002785, 7);
     install_jmp_hook((void*)ADDR_SUB_1002801, (void*)&sub_1002801, 7);
+    install_jmp_hook((void*)ADDR_SUB_10028D9, (void*)&sub_10028D9, 9);
+    install_jmp_hook((void*)ADDR_SUB_1002913, (void*)&sub_1002913, 7);
     install_jmp_hook((void*)ADDR_SUB_100346A, (void*)&sub_100346A, 10);
 
     // 3. Unfreeze (Resume) threads
     unfreeze_other_threads();
 
-    log_msg("[DLL] Successfully installed all 4 recompiled hooks (freeze -> hook -> unfreeze)!\n");
+    log_msg("[DLL] Successfully installed all 6 recompiled hooks (freeze -> hook -> unfreeze)!\n");
 }
 
 extern "C" BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved) {

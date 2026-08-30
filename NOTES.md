@@ -49,13 +49,16 @@ Multi-hook instrumentation DLL payload:
 - Installs 64-bit inline prologue hooks (`calculate_price` parameter mutation/profiling, `execute_job` return mutation).
 
 ### 5. `winmine_hook.cpp` → `winmine_hook.dll` (32-bit)
-Complete 4-function recompiled mine counter subsystem for 32-bit Windows XP `WINMINE.EXE`:
+Complete 6-function recompiled subsystem for 32-bit Windows XP `WINMINE.EXE`:
 - **`sub_1002752(hdc, xDest, a3)`**: Renders 13x23 7-segment digit glyph using `SetDIBitsToDevice` from `dword_100595C` bitmap and `dword_1005A60` offsets table.
 - **`sub_1002785(hdc)`**: Decomposes `dword_1005194` (mine count) into hundreds, tens, and ones (or minus sign index 11) and positions digits at x=17, x=30, x=43.
 - **`sub_1002801()`**: Acquires DC for `hWnd_1005B24`, calls `sub_1002785(DC)`, and releases DC.
+- **`sub_10028D9(hdc, a2)`**: Renders 24x24 smiley face button icon (states: normal, pressed, scared, dead, sunglasses) centered horizontally at `x = (xRight - 24) >> 1` via `SetDIBitsToDevice`.
+- **`sub_1002913(a1)`**: Acquires DC for `hWnd_1005B24`, calls `sub_10028D9(DC, a1)`, and releases DC.
 - **`sub_100346A(a1)`**: Updates `dword_1005194 += a1` and refreshes display via `sub_1002801()`.
-- Hooks all 4 functions simultaneously with relative jumps (`0xE9 rel32`).
+- Hooks all 6 functions with thread freezing/unfreezing lifecycle (`freeze_other_threads` -> `hook` -> `unfreeze_other_threads`).
 - Links against `-lgdi32`.
+
 
 
 
