@@ -180,6 +180,21 @@ DWORD __stdcall draw_number_sub_1002825(HDC hdc) {
 }
 
 // -----------------------------------------------------------------------------
+// 7. Recompiled redraw_number_sub_10028B5: Acquire DC, draw timer, and release DC
+// -----------------------------------------------------------------------------
+#define ADDR_SUB_10028B5 0x010028B5
+
+int redraw_number_sub_10028B5() {
+    HWND hWnd = hWnd_1005B24;
+    HDC DC = GetDC(hWnd);
+    if (!DC) return 0;
+
+    log_msg("[sub_10028B5] Redraw timer requested (hWnd=%p, DC=%p)\n", hWnd, DC);
+    draw_number_sub_1002825(DC);
+    return ReleaseDC(hWnd, DC);
+}
+
+// -----------------------------------------------------------------------------
 // 6. Recompiled sub_100346A: Add delta to mine counter and refresh display
 // -----------------------------------------------------------------------------
 int __stdcall sub_100346A(int a1) {
@@ -264,6 +279,7 @@ void install_all_hooks() {
     install_jmp_hook((void*)ADDR_SUB_1002785, (void*)&sub_1002785, 7);
     install_jmp_hook((void*)ADDR_SUB_1002801, (void*)&sub_1002801, 7);
     install_jmp_hook((void*)ADDR_SUB_1002825, (void*)&draw_number_sub_1002825, 7);
+    install_jmp_hook((void*)ADDR_SUB_10028B5, (void*)&redraw_number_sub_10028B5, 7);
     install_jmp_hook((void*)ADDR_SUB_10028D9, (void*)&sub_10028D9, 9);
     install_jmp_hook((void*)ADDR_SUB_1002913, (void*)&sub_1002913, 7);
     install_jmp_hook((void*)ADDR_SUB_100346A, (void*)&sub_100346A, 10);
@@ -271,7 +287,7 @@ void install_all_hooks() {
     // 3. Unfreeze (Resume) threads
     unfreeze_other_threads();
 
-    log_msg("[DLL] Successfully installed all 7 recompiled hooks (freeze -> hook -> unfreeze)!\n");
+    log_msg("[DLL] Successfully installed all 8 recompiled hooks (freeze -> hook -> unfreeze)!\n");
 }
 
 extern "C" BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved) {
