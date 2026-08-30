@@ -1,0 +1,61 @@
+int __stdcall sub_1002752(HDC hdc, int xDest, int a3)
+{
+  return SetDIBitsToDevice(
+           hdc,
+           xDest,
+           yDest: 16,
+           w: 0xDu,
+           h: 0x17u,
+           xSrc: 0,
+           ySrc: 0,
+           StartScan: 0,
+           cLines: 0x17u,
+           lpvBits: (char *)dword_100595C + dword_1005A60[a3],
+           lpbmi: dword_100595C,
+           ColorUse: 0);
+}
+
+DWORD __stdcall sub_1002785(HDC hdc)
+{
+  int v2; // ecx
+  int v3; // edx
+  int v4; // edi
+  DWORD result; // eax
+  DWORD hdca; // [esp+14h] [ebp+4h]
+
+  hdca = GetLayout(hdc);
+  if ( (hdca & 1) != 0 )
+    SetLayout(hdc, l: 0);
+  if ( dword_1005194 >= 0 )
+  {
+    v3 = dword_1005194 % 100;
+    v2 = dword_1005194 / 100;
+  }
+  else
+  {
+    v2 = 11;
+    v3 = -dword_1005194 % 100;
+  }
+  v4 = v3;
+  sub_1002752(hdc, xDest: 17, a3: v2);
+  sub_1002752(hdc, xDest: 30, a3: v4 / 10);
+  result = sub_1002752(hdc, xDest: 43, a3: v4 % 10);
+  if ( (hdca & 1) != 0 )
+    return SetLayout(hdc, l: hdca);
+  return result;
+}
+
+int sub_1002801()
+{
+  HDC DC; // esi
+
+  DC = GetDC(hWnd: hWnd);
+  sub_1002785(hdc: DC);
+  return ReleaseDC(hWnd: hWnd, hDC: DC);
+}
+
+int __stdcall sub_100346A(int a1)
+{
+  dword_1005194 += a1;
+  return sub_1002801();
+}

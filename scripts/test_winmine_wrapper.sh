@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -uo pipefail
 
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT_DIR"
+
 MODE="${1:-headless}"
 LOG_FILE="winmine_hook.log"
 

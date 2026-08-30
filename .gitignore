@@ -1,14 +1,15 @@
-# Build artifacts
+# Build artifacts and binaries
+bin/
 *.exe
 !WINMINE.EXE
+!resources/WINMINE.EXE
 *.dll
 *.o
 *.obj
 *.log
 
-# Archives and unpacked folders
-*.zip
-Minesweeper-Windows-XP/
+# Temporary build scripts
+send_click.exe
 
 # IDA database files
 *.id0
@@ -17,4 +18,3 @@ Minesweeper-Windows-XP/
 *.nam
 *.til
 *.i64
-decompile.txt
