@@ -326,6 +326,26 @@ int sub_1002AF0() {
 }
 
 // -----------------------------------------------------------------------------
+// 13. Recompiled sub_1002B14: Initialize / reset game controller
+// -----------------------------------------------------------------------------
+#define ADDR_SUB_1002414 0x01002414
+#define ADDR_SUB_1002ED5 0x01002ED5
+#define ADDR_SUB_1002B14 0x01002B14
+
+typedef int (*Sub_1002414_t)(void);
+typedef int (*Sub_1002ED5_t)(void);
+
+int sub_1002B14() {
+    log_msg("[sub_1002B14] Game initialization controller invoked\n");
+    int result = ((Sub_1002414_t)ADDR_SUB_1002414)();
+    if (result != 0) {
+        ((Sub_1002ED5_t)ADDR_SUB_1002ED5)();
+        return 1;
+    }
+    return result;
+}
+
+// -----------------------------------------------------------------------------
 // 6. Recompiled sub_100346A: Add delta to mine counter and refresh display
 // -----------------------------------------------------------------------------
 int __stdcall sub_100346A(int a1) {
@@ -418,12 +438,13 @@ void install_all_hooks() {
     install_jmp_hook((void*)ADDR_SUB_1002A22, (void*)&sub_1002A22, 7);
     install_jmp_hook((void*)ADDR_SUB_1002AC3, (void*)&sub_1002AC3, 5);
     install_jmp_hook((void*)ADDR_SUB_1002AF0, (void*)&sub_1002AF0, 7);
+    install_jmp_hook((void*)ADDR_SUB_1002B14, (void*)&sub_1002B14, 5);
     install_jmp_hook((void*)ADDR_SUB_100346A, (void*)&sub_100346A, 10);
 
     // 3. Unfreeze (Resume) threads
     unfreeze_other_threads();
 
-    log_msg("[DLL] Successfully installed all 13 recompiled hooks (freeze -> hook -> unfreeze)!\n");
+    log_msg("[DLL] Successfully installed all 14 recompiled hooks (freeze -> hook -> unfreeze)!\n");
 }
 
 extern "C" BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved) {
