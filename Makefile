@@ -38,7 +38,7 @@ $(BIN_DIR)/inject32.exe: $(SRC_DIR)/injector/inject32.cpp
 	$(CXX32) $(CXXFLAGS) -o $@ $< -ladvapi32
 
 $(BIN_DIR)/winmine_hook.dll: $(SRC_DIR)/hooks/winmine_hook.cpp
-	$(CXX32) -shared $(CXXFLAGS) -o $@ $< -lgdi32 -ladvapi32
+	$(CXX32) -shared $(CXXFLAGS) -o $@ $< -lgdi32 -ladvapi32 -lwinmm
 
 # Root binary synchronization for convenient execution
 hello.exe: $(BIN_DIR)/hello.exe

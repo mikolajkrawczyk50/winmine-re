@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <tlhelp32.h>
+#include <float.h>
 
 // =============================================================================
 // WINMINE.EXE Global Memory Map & Virtual Addresses
@@ -17,15 +18,48 @@
 #define dword_1005A00 (*(void**)0x01005A00)         // BITMAPINFO* pointer for smiley face button icons
 #define dword_1005A60 ((uint32_t*)0x01005A60)       // Pixel buffer byte offsets array for 7-segment digit glyphs
 #define dword_1005A90 (*(int*)0x01005A90)           // Right-side margin padding constant
+#define hMenu_1005A94 (*(HMENU*)0x01005A94)         // Game window menu handle
+#define dword_10056C4 (*(int*)0x010056C4)           // UI/menu flags (bit0 = menu hidden)
 #define lpKeyName_10050D0 ((const WCHAR**)0x010050D0)// Array of wide-string registry value names ("Height", "Width", etc.)
 #define xRight_1005B2C (*(int*)0x01005B2C)          // Game window client area width / right boundary coordinate
 #define yBottom_1005B20 (*(int*)0x01005B20)         // Game window client area height / bottom boundary coordinate
 #define hWnd_1005B24  (*(HWND*)0x01005B24)          // Main Minesweeper window handle
+#define dword_1005334 (*(int*)0x01005334)           // Number of columns in playing field
+#define dword_1005338 (*(int*)0x01005338)           // Number of rows in playing field
+#define unk_1005360   ((BYTE*)0x01005360)           // Tile state array (32 bytes per row, column 1-based)
+#define byte_1005340  ((BYTE*)0x01005340)           // Tile state array base (byte_1005360 - 0x20)
+#define hdcSrc_1005A20 ((HDC*)0x01005A20)           // HDC table for tile bitmaps (indexed by tile_state & 0x1F)
+#define dword_1005958 (*(HANDLE*)0x01005958)        // Resource data handle (LoadResource result)
+#define dword_1005A08 (*(HANDLE*)0x01005A08)        // Resource data handle for digits
+#define dword_1005954 (*(HANDLE*)0x01005954)        // Resource data handle for smileys
+#define dword_1005A04 (*(void**)0x01005A04)         // Locked tile bitmap data pointer (LockResource result)
+#define dword_10056C8 (*(int*)0x010056C8)           // Color mode flag (0=monochrome, non-zero=16-color)
+#define dword_10056B8 (*(int*)0x010056B8)           // Sound enabled flag (3=all sounds)
+#define dword_10059C0 ((uint32_t*)0x010059C0)       // Tile bitmap byte offset array (16 entries, ends at 0x1005A00)
+#define dword_1005980 ((int*)0x01005980)            // HBITMAP table for tile DCs (16 entries)
+#define dword_1005974 ((int*)0x01005974)            // End of smiley bitmap offset array
+#define hModule_1005B30 (*(HMODULE*)0x01005B30)     // Module handle for resource loading
+#define defaultStr_1005B40 ((const WCHAR*)0x01005B40) // Default string for registry fallback
 
 // =============================================================================
 // Function Entry Point Addresses in WINMINE.EXE .text Section
 // =============================================================================
 #define ADDR_SUB_1002414 0x01002414
+#define ADDR_SUB_10023CD 0x010023CD
+#define ADDR_SUB_10023F1 0x010023F1
+#define ADDR_SUB_1002B80 0x01002B80
+#define ADDR_SUB_100272E 0x0100272E
+#define ADDR_SUB_10038D7 0x010038D7
+#define ADDR_SUB_10038C2 0x010038C2
+#define ADDR_SUB_1003940 0x01003940
+#define ADDR_SUB_10039E7 0x010039E7
+#define ADDR_SUB_1001516 0x01001516
+#define ADDR_SUB_1001950 0x01001950
+#define ADDR_SUB_1003CC4 0x01003CC4
+#define ADDR_SUB_1003CE5 0x01003CE5
+#define ADDR_SUB_1003DF6 0x01003DF6
+#define ADDR_SUB_1003FF4 0x01003FF4
+#define ADDR_SUB_1002607 0x01002607
 #define ADDR_SUB_10026A7 0x010026A7
 #define ADDR_SUB_1002752 0x01002752
 #define ADDR_SUB_1002785 0x01002785
@@ -47,6 +81,8 @@
 typedef int (__stdcall *Sub_10026A7_t)(HDC hdc);
 typedef int (*Sub_1002414_t)(void);
 typedef int (*Sub_1002ED5_t)(void);
+typedef HRSRC (__stdcall *Sub_10023CD_t)(int resourceId);
+typedef int (__stdcall *Sub_10023F1_t)(int width, int height);
 
 // =============================================================================
 // Logging Utility
@@ -513,6 +549,398 @@ int __stdcall sub_100346A(int a1) {
     return sub_1002801();
 }
 
+/**
+ * 16. sub_10026A7 (0x010026A7)
+ * -----------------------------------------------------------------------------
+ * @brief Game Board Tile Grid Blitter.
+ * @details Iterates all rows and columns of the Minesweeper playing field,
+ *          reads each tile's state byte from the tile state array (unk_1005360),
+ *          looks up the corresponding pre-built HDC from hdcSrc_1005A20, and
+ *          blits the 16x16 tile bitmap onto the window DC via BitBlt(SRCCOPY).
+ *          Tile grid starts at pixel coordinates (12, 55) with 16px spacing.
+ * @param hdc     Target device context handle.
+ * @return int    Row counter after completion (always >= 1).
+ */
+int __stdcall sub_10026A7(HDC hdc) {
+    int result = 1;
+    int y = 55;
+    int v4 = 1;
+
+    if (dword_1005338 >= 1) {
+        BYTE* v2 = unk_1005360;
+        do {
+            int v3 = 1;
+            for (int x = 12; v3 <= dword_1005334; ++v3) {
+                BYTE tileState = v2[v3] & 0x1F;
+                BitBlt(hdc, x, y, 16, 16, hdcSrc_1005A20[tileState], 0, 0, 0xCC0020);
+                x += 16;
+            }
+            result = ++v4;
+            y += 16;
+            v2 += 32;
+        } while (v4 <= dword_1005338);
+    }
+    return result;
+}
+
+/**
+ * 17. sub_1002414 (0x01002414)
+ * -----------------------------------------------------------------------------
+ * @brief Game Resource Loader & GDI Initialization.
+ * @details Loads bitmap resources (tiles, digits, smileys) from the executable,
+ *          locks them to obtain memory pointers, creates GDI pen/brush objects,
+ *          computes DIB row offsets for each bitmap set, and initializes 16
+ *          compatible DCs with pre-rendered tile bitmaps for fast BitBlt blitting.
+ * @return int    1 on success (all resources loaded), 0 on failure.
+ */
+int sub_1002414() {
+    Sub_10023CD_t fnFindResource = (Sub_10023CD_t)ADDR_SUB_10023CD;
+    Sub_10023F1_t fnRowSize = (Sub_10023F1_t)ADDR_SUB_10023F1;
+
+    dword_1005958 = nullptr;
+    dword_1005A08 = nullptr;
+    dword_1005954 = nullptr;
+
+    HRSRC hRes;
+    hRes = fnFindResource(410);
+    if (hRes) dword_1005958 = LoadResource(hModule_1005B30, hRes);
+
+    hRes = fnFindResource(420);
+    if (hRes) dword_1005A08 = LoadResource(hModule_1005B30, hRes);
+
+    hRes = fnFindResource(430);
+    if (hRes) dword_1005954 = LoadResource(hModule_1005B30, hRes);
+
+    if (!dword_1005958 || !dword_1005A08 || !dword_1005954) {
+        log_msg("[sub_1002414] Resource load FAILED (tiles=%p, digits=%p, smileys=%p)\n",
+                dword_1005958, dword_1005A08, dword_1005954);
+        return 0;
+    }
+
+    void* lpbmi = LockResource(dword_1005958);
+    dword_100595C = LockResource(dword_1005A08);
+    dword_1005A00 = LockResource(dword_1005954);
+
+    HGDIOBJ hPenBrush;
+    if (dword_10056C8) {
+        hPenBrush = CreatePen(PS_SOLID, 1, RGB(0x80, 0x80, 0x80));
+    } else {
+        hPenBrush = GetStockObject(WHITE_BRUSH);
+    }
+    dword_1005158 = hPenBrush;
+
+    int v4 = fnRowSize(16, 16);
+    int offset = (dword_10056C8 ? 0x68 : 0x30);
+    uint32_t* pTileOffsets = dword_10059C0;
+    while (pTileOffsets < (uint32_t*)0x01005A00) {
+        *pTileOffsets++ = offset;
+        offset += v4;
+    }
+
+    int v8 = fnRowSize(13, 23);
+    int digitOffset = (dword_10056C8 ? 0x68 : 0x30);
+    uint32_t* pDigitOffsets = dword_1005A60;
+    while (pDigitOffsets < (uint32_t*)0x01005A90) {
+        *pDigitOffsets++ = digitOffset;
+        digitOffset += v8;
+    }
+
+    int v12 = fnRowSize(24, 24);
+    int smileyOffset = (dword_10056C8 ? 0x68 : 0x30);
+    uint32_t* pSmileyOffsets = dword_1005960;
+    while (pSmileyOffsets < (uint32_t*)dword_1005974) {
+        *pSmileyOffsets++ = smileyOffset;
+        smileyOffset += v12;
+    }
+
+    HDC DC = GetDC(hWnd_1005B24);
+    for (int i = 0; i < 16; ++i) {
+        hdcSrc_1005A20[i] = CreateCompatibleDC(DC);
+        if (!hdcSrc_1005A20[i])
+            OutputDebugStringA("FLoad failed to create compatible dc\n");
+
+        HBITMAP hBmp = CreateCompatibleBitmap(DC, 16, 16);
+        dword_1005980[i] = (int)hBmp;
+        if (!hBmp)
+            OutputDebugStringA("Failed to create Bitmap\n");
+
+        SelectObject(hdcSrc_1005A20[i], (HGDIOBJ)dword_1005980[i]);
+        SetDIBitsToDevice(
+            hdcSrc_1005A20[i],
+            0, 0, 16, 16,
+            0, 0, 0, 16,
+            (char*)lpbmi + dword_10059C0[i],
+            (BITMAPINFO*)lpbmi,
+            0);
+    }
+    ReleaseDC(hWnd_1005B24, DC);
+
+    log_msg("[sub_1002414] Resources loaded: tiles=%p, digits=%p, smileys=%p (colorMode=%d)\n",
+            lpbmi, dword_100595C, dword_1005A00, dword_10056C8);
+    return 1;
+}
+
+/**
+ * 18. sub_1002ED5 (0x01002ED5)
+ * -----------------------------------------------------------------------------
+ * @brief Board Reset / Tile State Initialization.
+ * @details Fills the entire tile state array (byte_1005340, 864 bytes) with
+ *          hidden state (0x0F), then sets border wall tiles (0x10) around the
+ *          playing field perimeter: top/bottom rows and left/right columns.
+ *          Border coordinates: row 0, row rowCount+1, col 0, col colCount+1.
+ */
+void sub_1002ED5() {
+    for (int i = 864; i != 0; --i)
+        byte_1005340[i - 1] = 0x0F;
+
+    int colCount = dword_1005334;
+    int rowCount = dword_1005338;
+
+    for (int c = colCount + 1; c >= 0; --c) {
+        byte_1005340[c] = 0x10;
+        byte_1005340[(rowCount + 1) * 32 + c] = 0x10;
+    }
+
+    for (int r = rowCount + 1; r >= 0; --r) {
+        byte_1005340[r * 32] = 0x10;
+        byte_1005340[r * 32 + colCount + 1] = 0x10;
+    }
+}
+
+/**
+ * 19. sub_1002607 (0x01002607)
+ * -----------------------------------------------------------------------------
+ * @brief GDI Resource Cleanup.
+ * @details Deletes the global pen/brush handle (dword_1005158), then iterates
+ *          16 compatible DCs and their associated bitmaps, releasing all GDI
+ *          resources allocated during game initialization.
+ * @return BOOL    Result of the last DeleteObject call.
+ */
+BOOL sub_1002607() {
+    if (dword_1005158)
+        DeleteObject(dword_1005158);
+
+    BOOL result = FALSE;
+    for (int i = 0; i < 16; ++i) {
+        DeleteDC(hdcSrc_1005A20[i]);
+        result = DeleteObject((HGDIOBJ)dword_1005980[i]);
+    }
+    return result;
+}
+
+/**
+ * 20. sub_1002B80 (0x01002B80)
+ * -----------------------------------------------------------------------------
+ * @brief Registry String Value Reader.
+ * @details Reads a string value from HKCU\Software\Microsoft\winmine using
+ *          the value name from lpKeyName_10050D0[keyIndex]. If the read fails,
+ *          copies a default string to the output buffer.
+ * @param keyIndex     Index into lpKeyName_10050D0 array.
+ * @param lpData       Output buffer for the string value.
+ * @return LONG        Status from RegQueryValueExW (0 = success).
+ */
+int __stdcall sub_1002B80(int keyIndex, LPBYTE lpData) {
+    DWORD cbData = 64;
+    const WCHAR* valName = lpKeyName_10050D0[keyIndex];
+
+    LONG status = RegQueryValueExW(
+        hKey_1005950,
+        valName,
+        NULL,
+        NULL,
+        lpData,
+        &cbData);
+
+    if (status != ERROR_SUCCESS) {
+        lstrcpyW((LPWSTR)lpData, defaultStr_1005B40);
+    }
+
+    log_msg("[sub_1002B80] RegQueryValueExW(keyIndex=%d): status=%d\n", keyIndex, status);
+    return status;
+}
+
+/**
+ * 21. sub_100272E (0x0100272E)
+ * -----------------------------------------------------------------------------
+ * @brief Tile Grid DC Acquisition Wrapper.
+ * @details Acquires the window DC via GetDC(hWnd_1005B24), triggers the tile
+ *          grid blitter (sub_10026A7) to repaint all playing field tiles,
+ *          and releases the DC via ReleaseDC.
+ * @return int    Status code from ReleaseDC.
+ */
+int sub_100272E() {
+    HDC DC = GetDC(hWnd_1005B24);
+    sub_10026A7(DC);
+    return ReleaseDC(hWnd_1005B24, DC);
+}
+
+/**
+ * 22. sub_10038D7 (0x010038D7)
+ * -----------------------------------------------------------------------------
+ * @brief Sound Stop (Stop Current Sound).
+ * @details If sound is enabled (dword_10056B8 == 3), calls PlaySoundW with
+ *          SND_PURGE to stop any currently playing sound effect.
+ * @return BOOL    Result of PlaySoundW, or undefined if sound disabled.
+ */
+BOOL sub_10038D7() {
+    if (dword_10056B8 == 3)
+        return PlaySoundW(NULL, NULL, SND_PURGE);
+    return FALSE;
+}
+
+/**
+ * 23. sub_10038C2 (0x010038C2)
+ * -----------------------------------------------------------------------------
+ * @brief Sound Stop with Offset Return.
+ * @details Calls PlaySoundW with SND_PURGE to stop any currently playing sound,
+ *          returns PlaySoundW result + 2.
+ * @return int    PlaySoundW result + 2.
+ */
+int sub_10038C2() {
+    return PlaySoundW(NULL, NULL, SND_PURGE) + 2;
+}
+
+/**
+ * 24. sub_1003940 (0x01003940)
+ * -----------------------------------------------------------------------------
+ * @brief Random Number Generator (Modulo).
+ * @details Returns rand() % a1, providing a random integer in range [0, a1-1].
+ * @param a1      Upper bound (exclusive).
+ * @return int    Random value in [0, a1-1].
+ */
+int __stdcall sub_1003940(int a1) {
+    return rand() % a1;
+}
+
+/**
+ * 25. sub_10039E7 (0x010039E7)
+ * -----------------------------------------------------------------------------
+ * @brief String Resource Loader with Fallback.
+ * @details Loads a string resource by ID via LoadStringW. If the load fails
+ *          (returns 0), falls back to loading string ID 1001 via sub_1003950.
+ * @param uID             String resource ID.
+ * @param lpBuffer        Output buffer for the string.
+ * @param cchBufferMax    Maximum characters in buffer.
+ * @return int            Number of characters copied, or fallback result.
+ */
+int __stdcall sub_10039E7(unsigned __int16 uID, LPWSTR lpBuffer, int cchBufferMax) {
+    int result = LoadStringW(hModule_1005B30, uID, lpBuffer, cchBufferMax);
+    if (result == 0)
+        return ((int (__stdcall*)(int))0x01003950)(1001);
+    return result;
+}
+
+/**
+ * 26. sub_1003CC4 (0x01003CC4)
+ * -----------------------------------------------------------------------------
+ * @brief Menu Check/Uncheck Item.
+ * @details Sets or removes the check mark on a menu item. If a2 is non-zero,
+ *          uses MF_CHECKED (8); otherwise MF_UNCHECKED (0).
+ * @param a1      Menu item ID (unsigned short).
+ * @param a2      Check state (non-zero = check, zero = uncheck).
+ * @return DWORD  Previous state of the menu item.
+ */
+DWORD __stdcall sub_1003CC4(unsigned __int16 a1, int a2) {
+    UINT uCheck = (a2 != 0) ? MF_CHECKED : MF_UNCHECKED;
+    return CheckMenuItem(hMenu_1005A94, a1, uCheck);
+}
+
+/**
+ * 27. sub_1003CE5 (0x01003CE5)
+ * -----------------------------------------------------------------------------
+ * @brief Menu Visibility Toggle.
+ * @details Sets UI flags, refreshes UI, then shows/hides the game menu based
+ *          on bit0 of the flags value. If bit0=0, menu is shown; if bit0=1,
+ *          menu is hidden (SetMenu with NULL).
+ * @param a1      New UI flags value.
+ * @return int    Result of sub_1001950(2).
+ */
+int __stdcall sub_1003CE5(int a1) {
+    typedef int (*Fn_1001516)(void);
+    typedef int (__stdcall *Fn_1001950)(int);
+
+    dword_10056C4 = a1;
+    ((Fn_1001516)ADDR_SUB_1001516)();
+    SetMenu(hWnd_1005B24, ((dword_10056C4 & 1) == 0) ? hMenu_1005A94 : NULL);
+    return ((Fn_1001950)ADDR_SUB_1001950)(2);
+}
+
+/**
+ * 28. sub_1003DF6 (0x01003DF6)
+ * -----------------------------------------------------------------------------
+ * @brief Dialog Integer Getter with Clamping.
+ * @details Retrieves an unsigned integer from a dialog control via GetDlgItemInt,
+ *          then clamps the value to the range [a3, a4].
+ * @param hDlg        Dialog window handle.
+ * @param nIDDlgItem  Control ID.
+ * @param a3          Minimum allowed value.
+ * @param a4          Maximum allowed value.
+ * @return int        Clamped integer value.
+ */
+int __stdcall sub_1003DF6(HWND hDlg, int nIDDlgItem, int a3, int a4) {
+    BOOL translated;
+    int result = GetDlgItemInt(hDlg, nIDDlgItem, &translated, FALSE);
+    if (result < a3) return a3;
+    if (result > a4) return a4;
+    return result;
+}
+
+/**
+ * 29. sub_1003FF4 (0x01003FF4)
+ * -----------------------------------------------------------------------------
+ * @brief Floating-Point Control Word Setter with Differential Verification.
+ * @details Calls _controlfp to set the floating-point control word: sets
+ *          precision to 53-bit (0x10000) with mask 0x30000.
+ *          Differential test invokes both original binary function via trampoline
+ *          and recompiled C function to prove 100% equivalence.
+ * @return unsigned int    Floating-point control word result.
+ */
+typedef unsigned int (*Sub_1003FF4_Orig_t)();
+static uint8_t g_sub_1003FF4_trampoline[32];
+static Sub_1003FF4_Orig_t g_orig_sub_1003FF4 = NULL;
+
+static void setup_sub_1003FF4_trampoline() {
+    DWORD oldProtect;
+    VirtualProtect(g_sub_1003FF4_trampoline, sizeof(g_sub_1003FF4_trampoline), PAGE_EXECUTE_READWRITE, &oldProtect);
+
+    // Copy original 5 bytes from 0x01003FF4 ("push $0x30000" -> 68 00 00 03 00)
+    memcpy(g_sub_1003FF4_trampoline, (void*)0x01003FF4, 5);
+
+    // Append JMP rel32 back to 0x01003FF9
+    g_sub_1003FF4_trampoline[5] = 0xE9;
+    DWORD targetAddr = 0x01003FF9;
+    DWORD jmpRel = targetAddr - ((DWORD)&g_sub_1003FF4_trampoline[5] + 5);
+    memcpy(&g_sub_1003FF4_trampoline[6], &jmpRel, 4);
+
+    FlushInstructionCache(GetCurrentProcess(), g_sub_1003FF4_trampoline, sizeof(g_sub_1003FF4_trampoline));
+    VirtualProtect(g_sub_1003FF4_trampoline, sizeof(g_sub_1003FF4_trampoline), oldProtect, &oldProtect);
+
+    g_orig_sub_1003FF4 = (Sub_1003FF4_Orig_t)g_sub_1003FF4_trampoline;
+}
+
+unsigned int recompiled_sub_1003FF4() {
+    return _controlfp(0x10000u, 0x30000u);
+}
+
+unsigned int sub_1003FF4() {
+    unsigned int recompiled_val = recompiled_sub_1003FF4();
+
+    if (g_orig_sub_1003FF4) {
+        unsigned int orig_val = g_orig_sub_1003FF4();
+        if (orig_val == recompiled_val) {
+            log_msg("[sub_1003FF4] [DIFFERENTIAL VERIFIED] Recompiled (0x%08X) == Original (0x%08X)\n",
+                    recompiled_val, orig_val);
+        } else {
+            log_msg("[sub_1003FF4] [DIFFERENTIAL MISMATCH] Recompiled (0x%08X) != Original (0x%08X)\n",
+                    recompiled_val, orig_val);
+        }
+    } else {
+        log_msg("[sub_1003FF4] Recompiled _controlfp executed: 0x%08X\n", recompiled_val);
+    }
+
+    return recompiled_val;
+}
+
 // =============================================================================
 // THREAD FREEZING / HOOKING / UNFREEZING LIFECYCLE
 // =============================================================================
@@ -585,7 +1013,10 @@ void install_all_hooks() {
     // 1. Freeze all other threads to prevent race conditions during patching
     freeze_other_threads();
 
-    // 2. Apply hooks safely
+    // 2. Setup trampolines before memory patching
+    setup_sub_1003FF4_trampoline();
+
+    // 3. Apply hooks safely
     install_jmp_hook((void*)ADDR_SUB_1002752, (void*)&sub_1002752, 9);
     install_jmp_hook((void*)ADDR_SUB_1002785, (void*)&sub_1002785, 7);
     install_jmp_hook((void*)ADDR_SUB_1002801, (void*)&sub_1002801, 7);
@@ -601,11 +1032,28 @@ void install_all_hooks() {
     install_jmp_hook((void*)ADDR_SUB_1002B14, (void*)&sub_1002B14, 5);
     install_jmp_hook((void*)ADDR_SUB_1002B27, (void*)&sub_1002B27, 7);
     install_jmp_hook((void*)ADDR_SUB_100346A, (void*)&sub_100346A, 10);
+    install_jmp_hook((void*)ADDR_SUB_10026A7, (void*)&sub_10026A7, 6);
+    install_jmp_hook((void*)ADDR_SUB_1002414, (void*)&sub_1002414, 9);
+    install_jmp_hook((void*)ADDR_SUB_1002ED5, (void*)&sub_1002ED5, 5);
+    install_jmp_hook((void*)ADDR_SUB_1002607, (void*)&sub_1002607, 5);
+    install_jmp_hook((void*)ADDR_SUB_1002B80, (void*)&sub_1002B80, 7);
+    install_jmp_hook((void*)ADDR_SUB_100272E, (void*)&sub_100272E, 7);
+    install_jmp_hook((void*)ADDR_SUB_10038D7, (void*)&sub_10038D7, 7);
+    install_jmp_hook((void*)ADDR_SUB_10038C2, (void*)&sub_10038C2, 6);
+    install_jmp_hook((void*)ADDR_SUB_1003940, (void*)&sub_1003940, 6);
+    install_jmp_hook((void*)ADDR_SUB_10039E7, (void*)&sub_10039E7, 5);
+    install_jmp_hook((void*)ADDR_SUB_1003CC4, (void*)&sub_1003CC4, 6);
+    install_jmp_hook((void*)ADDR_SUB_1003CE5, (void*)&sub_1003CE5, 9);
+    install_jmp_hook((void*)ADDR_SUB_1003DF6, (void*)&sub_1003DF6, 5);
+    install_jmp_hook((void*)ADDR_SUB_1003FF4, (void*)&sub_1003FF4, 5);
 
-    // 3. Unfreeze (Resume) threads
+    // 4. Unfreeze (Resume) threads
     unfreeze_other_threads();
 
-    log_msg("[DLL] Successfully installed all 15 recompiled hooks (freeze -> hook -> unfreeze)!\n");
+    log_msg("[DLL] Successfully installed all 29 recompiled hooks (freeze -> hook -> unfreeze)!\n");
+
+    // 5. Run Differential Verification on sub_1003FF4
+    sub_1003FF4();
 }
 
 extern "C" BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved) {
