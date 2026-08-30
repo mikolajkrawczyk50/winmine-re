@@ -311,6 +311,21 @@ int __stdcall sub_1002AC3(HDC hdc) {
 }
 
 // -----------------------------------------------------------------------------
+// 12. Recompiled sub_1002AF0: Acquire DC, invoke full repaint, and release DC
+// -----------------------------------------------------------------------------
+#define ADDR_SUB_1002AF0 0x01002AF0
+
+int sub_1002AF0() {
+    HWND hWnd = hWnd_1005B24;
+    HDC DC = GetDC(hWnd);
+    if (!DC) return 0;
+
+    log_msg("[sub_1002AF0] Full game window repaint DC wrapper (hWnd=%p, DC=%p)\n", hWnd, DC);
+    sub_1002AC3(DC);
+    return ReleaseDC(hWnd, DC);
+}
+
+// -----------------------------------------------------------------------------
 // 6. Recompiled sub_100346A: Add delta to mine counter and refresh display
 // -----------------------------------------------------------------------------
 int __stdcall sub_100346A(int a1) {
@@ -402,12 +417,13 @@ void install_all_hooks() {
     install_jmp_hook((void*)ADDR_SUB_1002971, (void*)&sub_1002971, 8);
     install_jmp_hook((void*)ADDR_SUB_1002A22, (void*)&sub_1002A22, 7);
     install_jmp_hook((void*)ADDR_SUB_1002AC3, (void*)&sub_1002AC3, 5);
+    install_jmp_hook((void*)ADDR_SUB_1002AF0, (void*)&sub_1002AF0, 7);
     install_jmp_hook((void*)ADDR_SUB_100346A, (void*)&sub_100346A, 10);
 
     // 3. Unfreeze (Resume) threads
     unfreeze_other_threads();
 
-    log_msg("[DLL] Successfully installed all 12 recompiled hooks (freeze -> hook -> unfreeze)!\n");
+    log_msg("[DLL] Successfully installed all 13 recompiled hooks (freeze -> hook -> unfreeze)!\n");
 }
 
 extern "C" BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved) {
