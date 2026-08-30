@@ -220,3 +220,89 @@ Runs 6 automated tests under `Xvfb`:
 | `sub_1002B14` | `0x01002B14` | Game Init & Reset Controller | **Recompiled & Hooked** |
 | `sub_1002B27` | `0x01002B27` | Clamped Registry Setting Reader | **Recompiled & Hooked** |
 | `sub_100346A` | `0x0100346A` | Mine Counter Delta Updater | **Recompiled & Hooked** |
+
+---
+
+## 5. Human-in-the-Loop & Frontier Web LLM Verification Protocol
+
+Reverse engineering legacy binary code often encounters complex compiler artifacts, obfuscated pointer math, or deep assembly control flow that exceeds the local context or reasoning capacity of automated coding agents. This section defines the **Tri-Tiered Collaboration Model** between the Human Operator, the Local Coding Agent, and Frontier Web-Based Chat LLMs (e.g., Claude 3.5 Sonnet/Opus, OpenAI o1/o3/GPT-4o, Gemini 1.5 Pro).
+
+```
+   ┌───────────────────────────────────────────────────────────┐
+   │                  HUMAN SUPERVISOR / OPERATOR              │
+   │  - Discovers routines from IDA/Ghidra                      │
+   │  - Inspects execution traces and edge cases               │
+   │  - Escalates difficult subroutines to Frontier Web LLMs   │
+   └─────────────────────────────┬─────────────────────────────┘
+                                 │
+         ┌───────────────────────┴───────────────────────┐
+         ▼                                               ▼
+┌───────────────────────────────┐     ┌──────────────────────────────────┐
+│     LOCAL CODING AGENT        │     │     FRONTIER WEB-CHAT LLMS       │
+│ (Fast Terminal / IDE Worker)  │     │   (Claude, GPT-4o/o1, Gemini)    │
+│  - Edits C++ hook code        │     │  - Deep disassembly analysis     │
+│  - Builds with MinGW          │     │  - Decompiler artifact cleanup   │
+│  - Installs atomic hooks      │     │  - Mathematical proof & diff     │
+│  - Runs Wine test suites      │     │  - Win32 API semantic mapping    │
+│  - Commits git snapshots      │     └──────────────────────────────────┘
+└───────────────────────────────┘
+```
+
+---
+
+### When to Delegate Verification to Frontier Web LLMs
+
+The Human Operator should copy raw decompilation and disassembly into the strongest available Web Chat LLM whenever encountering:
+
+1. **Decompiler Calling Convention Hallucinations**:
+   - Decompilers (like Hex-Rays / Ghidra) frequently mislabel `__stdcall` functions as `__thiscall` (interpreting local register usage as `void *this` in `ECX`, e.g., `sub_1002B27`).
+   - Web LLMs excel at cross-referencing the raw assembly (`ret 0x10` vs `ret`) to verify exact stack frame cleanup.
+
+2. **Complex Control Flow & Jump Tables**:
+   - Deeply nested state machines, indirect `jmp [eax*4 + table]`, and compiler-generated Duff's devices.
+
+3. **Structured Exception Handling (SEH) Frames**:
+   - Binary functions utilizing `__SEH_prolog`, `__except_handler3`, or `_XcptFilter` that require precise exception frame reconstruction.
+
+4. **Bit-Level Arithmetic & Coordinate Packing**:
+   - Packed bit fields (`MAKELPARAM(x, y)`), GDI raster ops (`ROP2`), and coordinate division/modulus formulas.
+
+---
+
+### Standard Prompt Template for Web LLM Verification
+
+When escalating a subroutine to a Frontier Web LLM, use the following standardized review prompt:
+
+```markdown
+### TASK: Binary Subroutine Recompilation & Equivalence Verification
+
+I am reverse engineering and recompiling a 32-bit x86 Windows binary routine into standard, readable Win32 C++.
+
+**Target Executable**: WINMINE.EXE (x86 PE32)
+**Function Name**: sub_XXXXXXXX (Virtual Address: 0x0100XXXX)
+
+#### Raw Disassembly (objdump):
+[PASTE DISASSEMBLY HERE]
+
+#### Decompiler Output (IDA / Ghidra):
+[PASTE DECOMPILATION HERE]
+
+#### Candidate Recompiled C++ Code:
+[PASTE RECOMPILED CODE HERE]
+
+#### VERIFICATION INSTRUCTIONS:
+1. Verify the exact calling convention (__stdcall vs __cdecl vs __fastcall) based on the RET instruction and register usage.
+2. Check for any decompiler artifacts or false variable assignments.
+3. Prove that the candidate C++ code is 100% mathematically and behaviorally equivalent.
+4. Highlight any edge cases, signed/unsigned integer underflows, or Win32 API side effects.
+```
+
+---
+
+### Verification Handoff Back to Local Agent
+
+Once the Frontier Web LLM confirms or corrects the clean C++ implementation:
+1. The Human pastes the validated code into the session.
+2. The Local Coding Agent integrates the function into `src/hooks/winmine_hook.cpp`.
+3. The Local Agent calculates instruction overwrite boundaries ($\ge 5$ bytes), registers the hook in `install_all_hooks()`, and triggers `make test` for automated Wine verification.
+
