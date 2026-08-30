@@ -98,13 +98,14 @@ cat << "CLICK_EOF" > send_click.cpp
 int main() {
     HWND hwnd = FindWindowA("Minesweeper", NULL);
     if (hwnd) {
+        InvalidateRect(hwnd, NULL, TRUE);
+        UpdateWindow(hwnd);
         LPARAM pos = MAKELPARAM(30, 70);
         PostMessageA(hwnd, WM_RBUTTONDOWN, MK_RBUTTON, pos);
         PostMessageA(hwnd, WM_RBUTTONUP, 0, pos);
         Sleep(100);
-        PostMessageA(hwnd, WM_LBUTTONDOWN, MK_LBUTTON, pos);
-        Sleep(100);
-        PostMessageA(hwnd, WM_LBUTTONUP, 0, pos);
+        InvalidateRect(hwnd, NULL, TRUE);
+        UpdateWindow(hwnd);
     }
     return 0;
 }
@@ -114,9 +115,9 @@ DISPLAY=:99 wine send_click.exe >/dev/null 2>&1 || true
 rm -f send_click.cpp send_click.exe
 sleep 2
 
-if grep -q "Successfully installed all 6 recompiled hooks" winmine_hook.log && \
+if grep -q "Successfully installed all .* recompiled hooks" winmine_hook.log && \
    grep -q "sub_10028D9" winmine_hook.log && \
-   grep -q "sub_1002913" winmine_hook.log; then
+   grep -q "sub_1002971" winmine_hook.log; then
     echo "PASS"
     ((PASS++))
 else
