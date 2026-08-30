@@ -256,6 +256,41 @@ int __stdcall sub_1002971(HDC hdc, int x, int a3, int a4, int y, int a6, int a7)
 }
 
 // -----------------------------------------------------------------------------
+// 10. Recompiled sub_1002A22: Draw all main window UI frames & containers
+// -----------------------------------------------------------------------------
+#define yBottom_1005B20 (*(int*)0x01005B20)
+#define ADDR_SUB_1002A22 0x01002A22
+
+int __stdcall sub_1002A22(HDC hdc) {
+    log_msg("[sub_1002A22] Drawing all window frames (hdc=%p, xRight=%d, yBottom=%d)\n",
+            hdc, xRight_1005B2C, yBottom_1005B20);
+
+    int v1 = xRight_1005B2C - 1;
+    int v2 = yBottom_1005B20 - 1;
+
+    // 1. Outer raised border
+    sub_1002971(hdc, 0, 0, xRight_1005B2C - 1, yBottom_1005B20 - 1, 3, 1);
+
+    v1 -= 9;
+    // 2. Sunken game board
+    sub_1002971(hdc, 9, 52, v1, v2 - 9, 3, 0);
+
+    // 3. Sunken header area
+    sub_1002971(hdc, 9, 9, v1, 45, 2, 0);
+
+    // 4. Mine counter inset frame
+    sub_1002971(hdc, 16, 15, 56, 39, 1, 0);
+
+    // 5. Timer counter inset frame
+    int timerLeft = xRight_1005B2C - dword_1005A90 - 57;
+    sub_1002971(hdc, timerLeft, 15, timerLeft + 40, 39, 1, 0);
+
+    // 6. Smiley button frame
+    int faceLeft = ((xRight_1005B2C - 24) >> 1) - 1;
+    return sub_1002971(hdc, faceLeft, 15, faceLeft + 25, 40, 1, 2);
+}
+
+// -----------------------------------------------------------------------------
 // 6. Recompiled sub_100346A: Add delta to mine counter and refresh display
 // -----------------------------------------------------------------------------
 int __stdcall sub_100346A(int a1) {
@@ -345,12 +380,13 @@ void install_all_hooks() {
     install_jmp_hook((void*)ADDR_SUB_1002913, (void*)&sub_1002913, 7);
     install_jmp_hook((void*)ADDR_SUB_100293D, (void*)&set_draw_mode_sub_100293D, 7);
     install_jmp_hook((void*)ADDR_SUB_1002971, (void*)&sub_1002971, 8);
+    install_jmp_hook((void*)ADDR_SUB_1002A22, (void*)&sub_1002A22, 7);
     install_jmp_hook((void*)ADDR_SUB_100346A, (void*)&sub_100346A, 10);
 
     // 3. Unfreeze (Resume) threads
     unfreeze_other_threads();
 
-    log_msg("[DLL] Successfully installed all 10 recompiled hooks (freeze -> hook -> unfreeze)!\n");
+    log_msg("[DLL] Successfully installed all 11 recompiled hooks (freeze -> hook -> unfreeze)!\n");
 }
 
 extern "C" BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved) {
