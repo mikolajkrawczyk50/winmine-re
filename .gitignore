@@ -1,0 +1,11 @@
+# Build artifacts
+*.exe
+!WINMINE.EXE
+*.dll
+*.o
+*.obj
+*.log
+
+# Archives and unpacked folders
+*.zip
+Minesweeper-Windows-XP/
